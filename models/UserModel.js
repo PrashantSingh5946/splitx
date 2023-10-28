@@ -15,6 +15,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "Your password is required"],
   },
+  firstName: {
+    type: String,
+    required: [true, "Your first name is required"],
+  },
+  lastName: {
+    type: String,
+    required: [true, "Your last name is required"],
+  },
+
+  groups: [{ type: mongoose.Types.ObjectId, ref: "Group" }],
+
   createdAt: {
     type: Date,
     default: new Date(),
