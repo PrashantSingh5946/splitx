@@ -11,7 +11,7 @@ const groupSchema = new mongoose.Schema({
 
   ownerId: { type: mongoose.Types.ObjectId, ref: "User" },
 
-  expenseIds: [{ type: mongoose.Types.ObjectId, ref: "Expense" }],
+  expenses: [{ type: mongoose.Types.ObjectId, ref: "Expense", default: [] }],
 
   updatedAt: {
     type: Date,
