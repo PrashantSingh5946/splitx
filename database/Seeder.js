@@ -4,8 +4,7 @@ const { MONGO_URL } = process.env;
 const UserModel = require("../models/UserModel");
 const GroupModel = require("../models/GroupModel");
 const ExpenseModel = require("../models/ExpenseModel");
-
-// Replace 'YourModel' and 'yourSchema' with your actual model and schema.
+const bcrypt = require("bcryptjs");
 
 mongoose.connect(MONGO_URL, {
   useNewUrlParser: true,
@@ -13,14 +12,14 @@ mongoose.connect(MONGO_URL, {
 });
 
 // Function to generate fake data
-const generateFakeData = () => {
+
+const generateFakeData = async () => {
   const fakeData = {
-    // Define your schema fields and generate fake data using 'faker' functions
     username: faker.internet.userName(),
     firstName: faker.name.firstName(),
     lastName: faker.name.lastName(),
     email: faker.internet.email(),
-    password: "Bharat@123",
+    password: await bcrypt.hash("Bharat@123", 12),
     groups: [],
   };
 
@@ -52,18 +51,16 @@ const generateFakeExpenses = (group_id, spender_id) => {
 
 // Function to save fake data to the database
 const saveFakeDataToDatabase = async () => {
-  const fakeUsers = generateFakeData();
-
   try {
+    const fakeUsers = await generateFakeData();
     const user = await UserModel.create(fakeUsers);
+
     const fakeGroup = generateFakeGroups(user._id);
     const group = await GroupModel.create(fakeGroup);
 
     //Add groupid to the groups array in User document
     const current_user = await UserModel.findById(user._id);
 
-    console.log("current user", current_user);
-    console.log("group id", group._id);
     current_user.groups.push(group._id);
     await current_user.save();
 
@@ -80,7 +77,7 @@ const saveFakeDataToDatabase = async () => {
 };
 
 // Generate and save multiple fake data entries
-const numberOfEntriesToGenerate = 10;
+const numberOfEntriesToGenerate = 1;
 
 for (let i = 0; i < numberOfEntriesToGenerate; i++) {
   saveFakeDataToDatabase();

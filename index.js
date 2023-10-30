@@ -4,7 +4,11 @@ const cors = require("cors");
 const app = express();
 require("dotenv").config();
 const cookieParser = require("cookie-parser");
+
+//Route imports
 const authRoute = require("./routes/AuthRoute");
+const expenseRoute = require("./routes/ExpenseRoute");
+
 const { MONGO_URL, PORT } = process.env;
 
 mongoose
@@ -32,3 +36,5 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use("/", authRoute);
+
+app.use("/expense", expenseRoute);
