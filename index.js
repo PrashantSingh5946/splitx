@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 //Route imports
 const authRoute = require("./routes/AuthRoute");
 const expenseRoute = require("./routes/ExpenseRoute");
+const groupRoute = require("./routes/GroupRoute");
 
 const { MONGO_URL, PORT } = process.env;
 
@@ -38,3 +39,5 @@ app.use(express.json());
 app.use("/", authRoute);
 
 app.use("/expense", expenseRoute);
+
+app.use("/group", groupRoute);

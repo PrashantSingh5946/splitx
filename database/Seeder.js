@@ -77,7 +77,7 @@ const saveFakeDataToDatabase = async () => {
 };
 
 // Generate and save multiple fake data entries
-const numberOfEntriesToGenerate = 1;
+const numberOfEntriesToGenerate = 10;
 
 for (let i = 0; i < numberOfEntriesToGenerate; i++) {
   saveFakeDataToDatabase();
