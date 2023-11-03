@@ -22,6 +22,16 @@ const groupSchema = new mongoose.Schema({
     type: Date,
     default: new Date(),
   },
+
+  totalExpenses: {
+    type: Number,
+    default: 0,
+  },
+
+  settledExpenses: {
+    type: Number,
+    default: 0,
+  },
 });
 
 module.exports = mongoose.model("Group", groupSchema);

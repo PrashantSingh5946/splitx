@@ -21,6 +21,22 @@ const expenseSchema = new mongoose.Schema({
     default: new Date(),
   },
 
+  isSettled: {
+    type: Boolean,
+    default: false,
+  },
+
+  splitType: {
+    type: Number,
+    default: 0,
+  },
+
+  share: {
+    type: Array,
+    default: [],
+    required: true,
+  },
+
   createdAt: {
     type: Date,
     default: new Date(),

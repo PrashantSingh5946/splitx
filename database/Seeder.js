@@ -5,6 +5,7 @@ const UserModel = require("../models/UserModel");
 const GroupModel = require("../models/GroupModel");
 const ExpenseModel = require("../models/ExpenseModel");
 const bcrypt = require("bcryptjs");
+const { exit } = require("process");
 
 mongoose.connect(MONGO_URL, {
   useNewUrlParser: true,
@@ -79,6 +80,10 @@ const saveFakeDataToDatabase = async () => {
 // Generate and save multiple fake data entries
 const numberOfEntriesToGenerate = 10;
 
-for (let i = 0; i < numberOfEntriesToGenerate; i++) {
-  saveFakeDataToDatabase();
-}
+(async () => {
+  for (let i = 0; i < numberOfEntriesToGenerate; i++) {
+    await saveFakeDataToDatabase();
+  }
+
+  exit();
+})();

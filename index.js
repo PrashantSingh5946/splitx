@@ -24,6 +24,7 @@ app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
 
+//Middlewares
 app.use(
   cors({
     origin: ["http://localhost:3000"],
@@ -31,13 +32,11 @@ app.use(
     credentials: true,
   })
 );
-
 app.use(cookieParser());
-
 app.use(express.json());
 
+//Route handlers
+
 app.use("/", authRoute);
-
-app.use("/expense", expenseRoute);
-
-app.use("/group", groupRoute);
+app.use("/expenses", expenseRoute);
+app.use("/groups", groupRoute);

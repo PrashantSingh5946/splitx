@@ -18,7 +18,10 @@ module.exports.Add = async (req, res, next) => {
     const { id } = jwt.verify(token, process.env.TOKEN_KEY);
     // Start the transaction.
     await session.withTransaction(async () => {
-      const group = await GroupModel.findOne({ _id: group_id, ownerId: id });
+      const group = await GroupModel.findOne({
+        _id: group_id,
+        groupMembers: id,
+      });
       console.log(group);
       const expense = await Expense.create({
         name,
@@ -27,6 +30,7 @@ module.exports.Add = async (req, res, next) => {
         ownerId: id,
       });
       group.expenses.push(expense._id);
+      group.totalExpenses += amount;
       await group.save();
     });
 
@@ -34,7 +38,7 @@ module.exports.Add = async (req, res, next) => {
     await session.commitTransaction();
   } catch (error) {
     // Abort the transaction.
-    await session.abortTransaction();
+
     console.log(error);
     res.status(500);
     // Throw the error.
@@ -106,6 +110,10 @@ module.exports.Update = async (req, res) => {
     const { id } = jwt.verify(token, process.env.TOKEN_KEY);
     // Start the transaction.
     await session.withTransaction(async () => {
+      const old_expense = await ExpenseModel.findOne({ _id: expense_id });
+
+      console.log("Old expense", old_expense);
+
       const result = await ExpenseModel.updateOne(
         { _id: expense_id },
         {
@@ -114,13 +122,30 @@ module.exports.Update = async (req, res) => {
           },
         }
       );
+
+      console.log("Updated expense", result);
+
+      const group = await GroupModel.findOne({
+        _id: old_expense.groupId,
+        groupMembers: id,
+      });
+
+      console.log("Group unupdated", group);
+
+      //If req.body contains amount update totalamount
+      group.totalExpenses =
+        group.totalExpenses - old_expense.amount + req.body.amount;
+
+      const updatedGroup = await group.save();
+
+      console.log("Updated group", updatedGroup);
     });
 
     // Commit the transaction.
     await session.commitTransaction();
   } catch (error) {
     // Abort the transaction.
-    await session.abortTransaction();
+
     console.log(error);
     res.status(500);
     // Throw the error.
@@ -191,4 +216,47 @@ module.exports.Delete = async (req, res) => {
     await session.endSession();
   }
   res.send("Deleted successfully");
+};
+
+module.exports.ShowAll = async (req, res) => {
+  let expenseData;
+  const session = await mongoose.startSession();
+  try {
+    const { group_id } = req.params;
+
+    const token = req.cookies.token;
+    const { id: user_id } = jwt.verify(token, process.env.TOKEN_KEY);
+
+    await session.withTransaction(async () => {
+      //Find the group
+      let group = await GroupModel.findOne({
+        _id: group_id,
+        groupMembers: user_id,
+      });
+
+      console.log(group);
+
+      //Find the expense
+      let expenses = await Expense.find({
+        groupId: group_id,
+      });
+
+      console.log(expenses);
+
+      if (!expenses) {
+        throw "Expense does not exist";
+      }
+
+      expenseData = expenses;
+    });
+
+    await session.commitTransaction();
+  } catch (error) {
+    console.log(error);
+    res.status(500);
+    // Throw the error.
+  } finally {
+    await session.endSession();
+  }
+  res.send(expenseData);
 };

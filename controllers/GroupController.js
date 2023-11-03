@@ -5,7 +5,6 @@ const ExpenseModel = require("../models/ExpenseModel");
 const UserModel = require("../models/UserModel");
 
 //Create an expense
-
 module.exports.Add = async (req, res, next) => {
   console.log("Session started");
   const session = await mongoose.startSession();
@@ -68,7 +67,6 @@ module.exports.Add = async (req, res, next) => {
 };
 
 //Read an expense
-
 module.exports.Get = async (req, res) => {
   let groupData;
   const session = await mongoose.startSession();
@@ -195,4 +193,37 @@ module.exports.Delete = async (req, res) => {
     await session.endSession();
   }
   res.send("Deleted group successfully");
+};
+
+//Show all groups associated with a user_id
+module.exports.ShowAll = async (req, res) => {
+  let groupData;
+  const session = await mongoose.startSession();
+  try {
+    const token = req.cookies.token;
+    const { id: user_id } = jwt.verify(token, process.env.TOKEN_KEY);
+
+    await session.withTransaction(async () => {
+      //Find the expense
+      let groups = await GroupModel.find({
+        ownerId: user_id,
+      });
+
+      if (!groups) {
+        throw "Group does not exist";
+      }
+
+      groupData = groups;
+    });
+
+    await session.commitTransaction();
+  } catch (error) {
+    // Abort the transaction.
+    console.log(error);
+    res.status(500);
+    // Throw the error.
+  } finally {
+    await session.endSession();
+  }
+  res.send(groupData);
 };
