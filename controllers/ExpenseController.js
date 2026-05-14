@@ -17,11 +17,14 @@ module.exports.Add = async (req, res, next) => {
         _id: group_id,
         groupMembers: id,
       });
+      // Use the explicitly provided payer if supplied; fall back to the authenticated user.
+      // The frontend sends `ownerId` when the payer is someone other than the logged-in user.
+      const ownerId = req.body.ownerId ?? id;
       const expense = await Expense.create({
         name,
         amount,
         groupId: group_id,
-        ownerId: id,
+        ownerId,
         splitType: req.body.splitType ?? 0,
         share: req.body.share ?? [],
         isSettled: req.body.isSettled ?? false,
