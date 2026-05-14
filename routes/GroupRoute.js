@@ -5,6 +5,7 @@ const {
   Update,
   Delete,
   ShowAll,
+  AddMembers,
 } = require("../controllers/GroupController");
 const { userVerification } = require("../middlewares/AuthMiddleware");
 
@@ -13,5 +14,6 @@ router.post("/add", userVerification, Add);
 router.get("/get/:id", userVerification, Get);
 router.delete("/delete/:id", userVerification, Delete);
 router.put("/update/:id", userVerification, Update);
+router.post("/:id/members", userVerification, AddMembers);
 
 module.exports = router;

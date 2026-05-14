@@ -1,4 +1,8 @@
 mongo-data/
 node_modules/
+splitx-client/
+.claude/
 
 .env
+.env.*
+.env.workflow

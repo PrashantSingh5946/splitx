@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: [true, "Your username is required"],
+    unique: true,
   },
   password: {
     type: String,
@@ -23,12 +24,20 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "Your last name is required"],
   },
+  phone: {
+    type: String,
+    default: null,
+  },
+  avatarColor: {
+    type: String,
+    default: "#6366F1",
+  },
 
   groups: [{ type: mongoose.Types.ObjectId, ref: "Group" }],
 
   createdAt: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
 });
 

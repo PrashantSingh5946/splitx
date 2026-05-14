@@ -1,69 +1,140 @@
 const User = require("../models/UserModel");
+const GroupModel = require("../models/GroupModel");
 const { createSecretToken } = require("../util/SecretToken");
+const { sendWelcomeEmail } = require("../util/EmailService");
 const bcrypt = require("bcryptjs");
 
+// ─── Helper: safe user object (no password) ───────────────────────────────────
+function safeUser(user) {
+  return {
+    _id: user._id,
+    email: user.email,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone || null,
+    avatarColor: user.avatarColor || "#6366F1",
+  };
+}
+
+// ─── Signup ───────────────────────────────────────────────────────────────────
 module.exports.Signup = async (req, res, next) => {
   try {
-    let { email, password, username, firstName, lastName } = req.body;
-    const existingUser = await User.findOne({ email });
+    let { email, password, username, firstName, lastName, phone } = req.body;
 
-    if (existingUser) {
-      return res.json({ message: "User already exists" });
+    if (!email || !password || !username || !firstName || !lastName) {
+      return res.status(400).json({ message: "All required fields must be filled", success: false });
     }
 
-    password = await bcrypt.hash(password, 12);
+    const existingEmail = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existingEmail) {
+      return res.status(409).json({ message: "An account with this email already exists", success: false });
+    }
+
+    const existingUsername = await User.findOne({ username: username.trim().toLowerCase() });
+    if (existingUsername) {
+      return res.status(409).json({ message: "That username is already taken", success: false });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await User.create({
-      email,
-      password,
-      username,
-      firstName,
-      lastName,
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      username: username.trim().toLowerCase(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone ? phone.trim() : null,
     });
+
+    // Auto-join any groups that invited this email
+    const pendingGroups = await GroupModel.find({
+      invitedEmails: email.toLowerCase().trim(),
+    });
+    for (const group of pendingGroups) {
+      group.groupMembers.push(user._id);
+      group.invitedEmails = group.invitedEmails.filter(
+        (e) => e !== email.toLowerCase().trim()
+      );
+      await group.save();
+    }
+
+    // Send welcome email (fire-and-forget — don't block the response)
+    sendWelcomeEmail({
+      to: user.email,
+      firstName: user.firstName,
+      username: user.username,
+    }).catch((err) => console.error("[EmailService] Welcome email failed:", err));
 
     const token = createSecretToken(user._id);
     res.cookie("token", token, {
       withCredentials: true,
-      httpOnly: false,
+      httpOnly: true,
     });
-    res
-      .status(201)
-      .json({ message: "User signed in successfully", success: true, user });
-    next();
+
+    return res.status(201).json({
+      message: "Account created successfully",
+      success: true,
+      user: safeUser(user),
+    });
   } catch (error) {
-    console.error(error);
+    console.error("[AuthController.Signup]", error);
+    return res.status(500).json({ message: "Something went wrong", success: false });
   }
 };
 
+// ─── Check email ──────────────────────────────────────────────────────────────
+module.exports.CheckEmail = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.json({ exists: false, invited: false });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const pendingGroup = await GroupModel.findOne({
+      invitedEmails: email.toLowerCase().trim(),
+    });
+
+    res.json({
+      exists: !!user,
+      invited: !!pendingGroup,
+    });
+  } catch (error) {
+    console.error("[AuthController.CheckEmail]", error);
+    res.status(500).json({ exists: false, invited: false });
+  }
+};
+
+// ─── Login ────────────────────────────────────────────────────────────────────
 module.exports.Login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.json({ message: "All fields are required" });
+      return res.status(400).json({ message: "Email and password are required", success: false });
     }
-    const user = await User.findOne({ email });
 
-    console.log(email, password);
-
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.json({ message: "No such user" });
+      return res.status(401).json({ message: "No account found with that email", success: false });
     }
 
     const auth = await bcrypt.compare(password, user.password);
-
     if (!auth) {
-      return res.json({ message: "Incorrect password or email" });
+      return res.status(401).json({ message: "Incorrect password", success: false });
     }
+
     const token = createSecretToken(user._id);
     res.cookie("token", token, {
       withCredentials: true,
-      httpOnly: false,
+      httpOnly: true,
     });
-    res
-      .status(201)
-      .json({ message: "User logged in successfully", success: true });
-    next();
+
+    return res.status(200).json({
+      message: "Logged in successfully",
+      success: true,
+      user: safeUser(user),
+    });
   } catch (error) {
-    console.error(error);
+    console.error("[AuthController.Login]", error);
+    return res.status(500).json({ message: "Something went wrong", success: false });
   }
 };

@@ -7,11 +7,18 @@ const groupSchema = new mongoose.Schema({
     unique: true,
   },
 
+  emoji: {
+    type: String,
+    default: "🌟",
+  },
+
   groupMembers: [{ type: mongoose.Types.ObjectId, ref: "User" }],
 
   ownerId: { type: mongoose.Types.ObjectId, ref: "User" },
 
   expenses: [{ type: mongoose.Types.ObjectId, ref: "Expense", default: [] }],
+
+  invitedEmails: [{ type: String }],
 
   updatedAt: {
     type: Date,

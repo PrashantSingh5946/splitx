@@ -9,6 +9,7 @@ const cookieParser = require("cookie-parser");
 const authRoute = require("./routes/AuthRoute");
 const expenseRoute = require("./routes/ExpenseRoute");
 const groupRoute = require("./routes/GroupRoute");
+const userRoute = require("./routes/UserRoute");
 
 const { MONGO_URL, PORT } = process.env;
 
@@ -27,7 +28,7 @@ app.listen(PORT, () => {
 //Middlewares
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: true, // allow all origins in development
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -40,3 +41,4 @@ app.use(express.json());
 app.use("/", authRoute);
 app.use("/expenses", expenseRoute);
 app.use("/groups", groupRoute);
+app.use("/users", userRoute);
