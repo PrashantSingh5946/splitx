@@ -22,6 +22,9 @@ module.exports.Add = async (req, res, next) => {
         amount,
         groupId: group_id,
         ownerId: id,
+        splitType: req.body.splitType ?? 0,
+        share: req.body.share ?? [],
+        isSettled: req.body.isSettled ?? false,
       });
       group.expenses.push(expense._id);
       group.totalExpenses += amount;
@@ -94,15 +97,15 @@ module.exports.Update = async (req, res) => {
         { $set: { ...req.body } }
       );
 
-      const group = await GroupModel.findOne({
-        _id: old_expense.groupId,
-        groupMembers: id,
-      });
-
-      group.totalExpenses =
-        group.totalExpenses - old_expense.amount + req.body.amount;
-
-      await group.save();
+      if (req.body.amount !== undefined) {
+        const group = await GroupModel.findOne({
+          _id: old_expense.groupId,
+          groupMembers: id,
+        });
+        group.totalExpenses =
+          group.totalExpenses - old_expense.amount + req.body.amount;
+        await group.save();
+      }
     });
 
     await session.commitTransaction();
