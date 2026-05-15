@@ -32,7 +32,10 @@ module.exports.SearchUsers = async (req, res) => {
       return res.json([]);
     }
 
-    const regex = new RegExp(q.trim(), "i");
+    // Fix #21: escape special regex chars to prevent ReDoS via crafted search strings.
+    const escaped = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
     const users = await UserModel.find({
       _id: { $ne: currentUserId },
       $or: [

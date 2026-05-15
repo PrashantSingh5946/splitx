@@ -16,11 +16,6 @@ const expenseSchema = new mongoose.Schema({
 
   groupId: { type: mongoose.Types.ObjectId, ref: "Group" },
 
-  updatedAt: {
-    type: Date,
-    default: new Date(),
-  },
-
   isSettled: {
     type: Boolean,
     default: false,
@@ -36,11 +31,10 @@ const expenseSchema = new mongoose.Schema({
     default: [],
     required: true,
   },
-
-  createdAt: {
-    type: Date,
-    default: new Date(),
-  },
+}, {
+  // Fix #14: use built-in timestamps so createdAt/updatedAt are set per-document,
+  // not once at module load time (the old `default: new Date()` bug).
+  timestamps: true,
 });
 
 module.exports = mongoose.model("Expense", expenseSchema);

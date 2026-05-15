@@ -17,6 +17,15 @@ function safeUser(user) {
   };
 }
 
+// Fix #19: secure cookie options — httpOnly always, secure+sameSite in production.
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  };
+}
+
 // ─── Signup ───────────────────────────────────────────────────────────────────
 module.exports.Signup = async (req, res, next) => {
   try {
@@ -57,6 +66,11 @@ module.exports.Signup = async (req, res, next) => {
         (e) => e !== email.toLowerCase().trim()
       );
       await group.save();
+      // Fix #12: also push the group into the new user's groups array.
+      user.groups.push(group._id);
+    }
+    if (pendingGroups.length > 0) {
+      await user.save();
     }
 
     // Send welcome email (fire-and-forget — don't block the response)
@@ -67,10 +81,8 @@ module.exports.Signup = async (req, res, next) => {
     }).catch((err) => console.error("[EmailService] Welcome email failed:", err));
 
     const token = createSecretToken(user._id);
-    res.cookie("token", token, {
-      withCredentials: true,
-      httpOnly: true,
-    });
+    // Fix #19: add secure + sameSite flags.
+    res.cookie("token", token, cookieOptions());
 
     return res.status(201).json({
       message: "Account created successfully",
@@ -123,10 +135,8 @@ module.exports.Login = async (req, res, next) => {
     }
 
     const token = createSecretToken(user._id);
-    res.cookie("token", token, {
-      withCredentials: true,
-      httpOnly: true,
-    });
+    // Fix #19: add secure + sameSite flags.
+    res.cookie("token", token, cookieOptions());
 
     return res.status(200).json({
       message: "Logged in successfully",

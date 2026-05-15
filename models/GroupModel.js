@@ -4,7 +4,9 @@ const groupSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, "Group name is required"],
-    unique: true,
+    // Fix #13: removed global unique:true — group names should be unique per owner,
+    // not globally. Drop the old index on the DB side via:
+    //   db.groups.dropIndex("name_1")
   },
 
   emoji: {
@@ -20,16 +22,6 @@ const groupSchema = new mongoose.Schema({
 
   invitedEmails: [{ type: String }],
 
-  updatedAt: {
-    type: Date,
-    default: new Date(),
-  },
-
-  createdAt: {
-    type: Date,
-    default: new Date(),
-  },
-
   totalExpenses: {
     type: Number,
     default: 0,
@@ -39,6 +31,9 @@ const groupSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+}, {
+  // Fix #14: built-in timestamps — createdAt/updatedAt set per-document correctly.
+  timestamps: true,
 });
 
 module.exports = mongoose.model("Group", groupSchema);
