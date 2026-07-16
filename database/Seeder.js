@@ -6,13 +6,24 @@
  *   • 3 groups (Goa Trip, Apartment 4B, Weekend Crew)
  *   • 17 expenses spread across the groups
  *
- * Run:  node database/Seeder.js
+ * Run:  SEED_CONFIRM=yes node database/Seeder.js
  * Env:  MONGO_URL must be set (reads from .env automatically)
+ *
+ * DESTRUCTIVE: wipes and recreates the seed users, their groups and expenses.
+ * It refuses to run unless SEED_CONFIRM=yes is set.
  */
-
-MONGO_URL = "mongodb://mongo:27017/splitx"
-
 require("dotenv").config();
+
+const MONGO_URL = process.env.MONGO_URL;
+if (!MONGO_URL) {
+  console.error("❌  MONGO_URL is not set. Add it to .env or the environment. Aborting.");
+  process.exit(1);
+}
+if (process.env.SEED_CONFIRM !== "yes") {
+  console.error("❌  Refusing to run: seeding wipes data. Re-run with SEED_CONFIRM=yes.");
+  process.exit(1);
+}
+
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const { exit } = require("process");
@@ -20,6 +31,7 @@ const { exit } = require("process");
 const UserModel = require("../models/UserModel");
 const GroupModel = require("../models/GroupModel");
 const ExpenseModel = require("../models/ExpenseModel");
+const SettlementModel = require("../models/SettlementModel");
 
 
 const PASSWORD = "Splitx@123"; // shared password for all seed accounts
@@ -47,7 +59,7 @@ function daysAgo(n) {
   return d;
 }
 
-async function buildExpense({ name, amount, payer, participants, splitType = SPLIT.EQUAL_ALL, groupId, settled = false, daysBack = 0 }) {
+async function buildExpense({ name, amount, payer, participants, splitType = SPLIT.EQUAL_ALL, groupId, settled = false, daysBack = 0, percentages }) {
   return ExpenseModel.create({
     name,
     amount,
@@ -55,6 +67,7 @@ async function buildExpense({ name, amount, payer, participants, splitType = SPL
     groupId,
     splitType,
     share: participants.map(u => u._id),
+    percentages,
     isSettled: settled,
     createdAt: daysAgo(daysBack),
     updatedAt: daysAgo(daysBack),
@@ -76,6 +89,7 @@ async function seed() {
     const groupsToDelete = await GroupModel.find({ ownerId: { $in: existingIds } });
     const groupIds = groupsToDelete.map(g => g._id);
     await ExpenseModel.deleteMany({ groupId: { $in: groupIds } });
+    await SettlementModel.deleteMany({ groupId: { $in: groupIds } });
     await GroupModel.deleteMany({ _id: { $in: groupIds } });
     await UserModel.deleteMany({ _id: { $in: existingIds } });
     console.log("🗑️   Cleared previous seed data");
@@ -124,12 +138,20 @@ async function seed() {
     buildExpense({ name: "Beach shack dinner", amount: 4800, payer: aarav, participants: goaMembers, groupId: goa._id, daysBack: 9 }),
     buildExpense({ name: "Sunburn concert tickets", amount: 7500, payer: prashant, participants: [prashant, aarav, priya], groupId: goa._id, splitType: SPLIT.EQUAL_SOME, daysBack: 8 }),
     buildExpense({ name: "Dinner at Thalassa", amount: 6800, payer: aarav, participants: goaMembers, groupId: goa._id, daysBack: 7 }),
+    buildExpense({
+      name: "Villa BBQ night", amount: 4000, payer: prashant, participants: goaMembers,
+      groupId: goa._id, splitType: SPLIT.PERCENTAGE, daysBack: 8,
+      percentages: {
+        [prashant._id]: 40, [aarav._id]: 15, [priya._id]: 15, [karan._id]: 15, [meera._id]: 15,
+      },
+    }),
     buildExpense({ name: "Cab to airport", amount: 1400, payer: karan, participants: [prashant, karan, meera], groupId: goa._id, splitType: SPLIT.EQUAL_SOME, daysBack: 7, settled: true }),
     buildExpense({ name: "Souvenir shopping split", amount: 2200, payer: priya, participants: [priya, aarav], groupId: goa._id, splitType: SPLIT.EQUAL_SOME, daysBack: 7, settled: true }),
   ]);
 
   goa.expenses = goaExpenses.map(e => e._id);
-  goa.totalExpenses = goaExpenses.length;
+  // totalExpenses mirrors ExpenseController.Add semantics: sum of amounts, not count.
+  goa.totalExpenses = goaExpenses.reduce((s, e) => s + e.amount, 0);
   goa.settledExpenses = goaExpenses.filter(e => e.isSettled).length;
   await goa.save();
 
@@ -163,7 +185,7 @@ async function seed() {
   ]);
 
   flat.expenses = flatExpenses.map(e => e._id);
-  flat.totalExpenses = flatExpenses.length;
+  flat.totalExpenses = flatExpenses.reduce((s, e) => s + e.amount, 0);
   flat.settledExpenses = flatExpenses.filter(e => e.isSettled).length;
   await flat.save();
 
@@ -195,7 +217,7 @@ async function seed() {
   ]);
 
   crew.expenses = crewExpenses.map(e => e._id);
-  crew.totalExpenses = crewExpenses.length;
+  crew.totalExpenses = crewExpenses.reduce((s, e) => s + e.amount, 0);
   crew.settledExpenses = crewExpenses.filter(e => e.isSettled).length;
   await crew.save();
 

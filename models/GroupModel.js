@@ -20,6 +20,8 @@ const groupSchema = new mongoose.Schema({
 
   expenses: [{ type: mongoose.Types.ObjectId, ref: "Expense", default: [] }],
 
+  settlements: [{ type: mongoose.Types.ObjectId, ref: "Settlement", default: [] }],
+
   invitedEmails: [{ type: String }],
 
   totalExpenses: {

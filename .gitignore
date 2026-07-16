@@ -5,5 +5,6 @@ splitx-client/
 
 .env
 .env.*
+!.env.example
 .env.workflow
 tasks.md

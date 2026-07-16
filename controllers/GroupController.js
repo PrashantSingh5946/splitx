@@ -117,6 +117,8 @@ module.exports.Get = async (req, res) => {
         groupMembers: userId,
       })
         .populate("groupMembers", "firstName lastName username email")
+        .populate("expenses")
+        .populate("settlements")
         .session(session);
 
       if (!group) throw new Error("Group does not exist");
@@ -311,6 +313,7 @@ module.exports.ShowAll = async (req, res) => {
       groupData = await GroupModel.find({ groupMembers: userId })
         .populate("groupMembers", "firstName lastName username email")
         .populate("expenses")
+        .populate("settlements")
         .session(session);
     });
     // Fix #2: no manual commitTransaction.

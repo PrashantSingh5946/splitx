@@ -49,6 +49,17 @@ const PRIMARY = "#6366F1";
 const DARK    = "#0F172A";
 const MUTED   = "#64748B";
 
+// Escape user-supplied values before interpolating into email HTML.
+// Names, usernames and group names are attacker-controlled input.
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function baseLayout(bodyContent) {
   return `
 <!DOCTYPE html>
@@ -133,8 +144,10 @@ function divider() {
 /**
  * 1. Welcome email sent right after a new account is created.
  */
-async function sendWelcomeEmail({ to, firstName, username }) {
-  const subject = `Welcome to SplitX, ${firstName}! 🎉`;
+async function sendWelcomeEmail({ to, firstName: rawFirstName, username: rawUsername }) {
+  const subject = `Welcome to SplitX, ${rawFirstName}! 🎉`;
+  const firstName = esc(rawFirstName);
+  const username = esc(rawUsername);
   const html = baseLayout(`
     <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;color:${DARK};letter-spacing:-0.5px;">
       Hey ${firstName}, welcome! 👋
@@ -171,9 +184,13 @@ async function sendWelcomeEmail({ to, firstName, username }) {
  * 2. Invite email sent to someone who has NO account yet.
  *    Contains a deep-link / web URL they can tap to sign up.
  */
-async function sendGroupInviteEmail({ to, inviterName, groupName, groupEmoji }) {
-  const subject = `${inviterName} invited you to "${groupEmoji} ${groupName}" on SplitX`;
-  const signupUrl = `${process.env.APP_URL || "https://splitx.app"}/join?email=${encodeURIComponent(to)}`;
+async function sendGroupInviteEmail({ to: rawTo, inviterName: rawInviter, groupName: rawGroupName, groupEmoji: rawEmoji }) {
+  const subject = `${rawInviter} invited you to "${rawEmoji} ${rawGroupName}" on SplitX`;
+  const signupUrl = `${process.env.APP_URL || "https://splitx.app"}/join?email=${encodeURIComponent(rawTo)}`;
+  const to = esc(rawTo);
+  const inviterName = esc(rawInviter);
+  const groupName = esc(rawGroupName);
+  const groupEmoji = esc(rawEmoji);
 
   const html = baseLayout(`
     <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;color:${DARK};letter-spacing:-0.5px;">
@@ -207,14 +224,18 @@ async function sendGroupInviteEmail({ to, inviterName, groupName, groupEmoji }) 
       If you weren't expecting this invite, you can safely ignore it.
     </p>
   `);
-  await sendEmail({ to, subject, html });
+  await sendEmail({ to: rawTo, subject, html });
 }
 
 /**
  * 3. Notification email sent to an EXISTING user who was added to a group.
  */
-async function sendAddedToGroupEmail({ to, firstName, adderName, groupName, groupEmoji, memberCount }) {
-  const subject = `You've been added to "${groupEmoji} ${groupName}"`;
+async function sendAddedToGroupEmail({ to, firstName: rawFirstName, adderName: rawAdder, groupName: rawGroupName, groupEmoji: rawEmoji, memberCount }) {
+  const subject = `You've been added to "${rawEmoji} ${rawGroupName}"`;
+  const firstName = esc(rawFirstName);
+  const adderName = esc(rawAdder);
+  const groupName = esc(rawGroupName);
+  const groupEmoji = esc(rawEmoji);
   const html = baseLayout(`
     <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;color:${DARK};letter-spacing:-0.5px;">
       You're in a new group 🥳

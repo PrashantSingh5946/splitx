@@ -10,6 +10,7 @@ const authRoute = require("./routes/AuthRoute");
 const expenseRoute = require("./routes/ExpenseRoute");
 const groupRoute = require("./routes/GroupRoute");
 const userRoute = require("./routes/UserRoute");
+const settlementRoute = require("./routes/SettlementRoute");
 
 const { PORT } = process.env;
 
@@ -59,6 +60,7 @@ app.use("/", authRoute);
 app.use("/expenses", expenseRoute);
 app.use("/groups", groupRoute);
 app.use("/users", userRoute);
+app.use("/settlements", settlementRoute);
 
 // In local / Docker dev, start the HTTP server.
 // On Vercel the module.exports below is used instead.

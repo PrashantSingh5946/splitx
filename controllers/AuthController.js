@@ -124,14 +124,12 @@ module.exports.Login = async (req, res, next) => {
       return res.status(400).json({ message: "Email and password are required", success: false });
     }
 
+    // Same message + status for unknown email and wrong password so responses
+    // can't be used to enumerate which emails have accounts.
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
-      return res.status(401).json({ message: "No account found with that email", success: false });
-    }
-
-    const auth = await bcrypt.compare(password, user.password);
-    if (!auth) {
-      return res.status(401).json({ message: "Incorrect password", success: false });
+    const auth = user ? await bcrypt.compare(password, user.password) : false;
+    if (!user || !auth) {
+      return res.status(401).json({ message: "Invalid email or password", success: false });
     }
 
     const token = createSecretToken(user._id);
