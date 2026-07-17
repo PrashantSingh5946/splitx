@@ -1,92 +1,88 @@
 # SplitX — Project TODO
 
+> Last updated: July 2026. See `CONTEXT.md` for full architecture/running details.
+
 ---
 
 ## 🚀 How to Run the Project
 
-### Backend (Docker)
+### Against production (default)
 
-```bash
-cd /path/to/splitx          # repo root (contains docker-compose.yml)
-docker compose up           # starts Express on :3000 + MongoDB on :27017
-```
-
-> **Seed the database** (first time or after a wipe):
-> ```bash
-> docker exec -it express-server node database/Seeder.js
-> ```
-> Seeds 9 users, 3 groups (Goa Trip, Apartment 4B, Weekend Crew), 17 expenses.
-> Seed credentials: `octanesingh@gmail.com` / `Splitx@123`
-
-Backend `.env` lives at repo root — key values:
-| Variable | Value |
-|---|---|
-| `PORT` | `3000` |
-| `MONGO_URL` | `mongodb://mongo:27017/splitx` |
-| `TOKEN_KEY` | `splitx_jwt_secret_key_dev` |
-| `APP_URL` | `http://<your-LAN-IP>:8081` |
-
----
-
-### Client (Expo)
+The backend is live on Vercel (`https://splitx-plum.vercel.app`, MongoDB Atlas) and `constants/api.ts` already points at it — just start the client:
 
 ```bash
 cd splitx-client/splitx
 npx expo start              # scan QR with Expo Go, or press a/i for emulators
 ```
 
-> **API base URL** lives in `constants/api.ts`.
-> Change the `LOCAL_HOST` IP to your machine's LAN IP when running on a physical device.
-> Android emulator: `10.0.2.2` | iOS simulator: `localhost`
+### Local backend (development only)
 
-Auth: JWT stored in `AsyncStorage` via `@react-native-async-storage/async-storage`.
-Token is extracted from `Set-Cookie` on login and attached as `Cookie` header on every request.
+```bash
+cd /path/to/splitx          # repo root (contains docker-compose.yml)
+docker compose up           # Express on :3000 + MongoDB on :27017
+```
+
+Then point the client at it by temporarily editing `API_BASE` in `constants/api.ts`
+(`http://<LAN-IP>:3000` on a physical device, `http://10.0.2.2:3000` on the Android
+emulator, `http://localhost:3000` on the iOS simulator).
+
+> **Seed the database** (destructive — guarded):
+> ```bash
+> MONGO_URL=... SEED_CONFIRM=yes node database/Seeder.js
+> ```
+> Refuses to run without `MONGO_URL` and `SEED_CONFIRM=yes`. Seeds 9 users, 3 groups
+> (Goa Trip, Apartment 4B, Weekend Crew), 17 expenses incl. percentage-split examples.
+> Seed credentials: `octanesingh@gmail.com` / `Splitx@123`
+
+Backend `.env` (copy from `.env.example`): `PORT`, `MONGO_URL` (required, no default),
+`TOKEN_KEY`, `APP_URL`.
+
+Auth: JWT stored in `AsyncStorage`, extracted from `Set-Cookie` on login and attached
+as a `Cookie` header on every request. A global 401 handler clears the token and
+redirects to the auth screen.
 
 ---
 
 ## ✅ Completed
 
-- [x] Dashboard — fixed heading + Net Balance hero card, scrollable groups list
-- [x] Groups tab — fixed heading, scrollable group cards
-- [x] Activity tab — fixed heading, scrollable list
-- [x] Profile tab — fixed avatar/name header, scrollable settings
-- [x] Custom transparent floating navbar (no border, no background)
-- [x] Aurora gradient backgrounds on all 4 tab pages (`#0D0B1F → #000 → #0D0B1F`)
-- [x] Aurora gradient on group cards, profile cards, logout modal (`#201A45 → #181B25`)
-- [x] Skia blur orbs on hero card and logout modal
-- [x] Balance pills — theme-aware (owed / owe / settled)
-- [x] Notifications modal — slide-up sheet from bottom, overlaps navbar
-- [x] Logout modal — themed aurora card with frosted buttons, dark overlay backdrop
-- [x] AppTopBar — avatar + bell icon with unread badge
-- [x] Database seeder — 9 users, 3 groups, 17 expenses
+### UI / Client
+- [x] All 4 tabs (Dashboard, Groups, Activity, Profile) with fixed headers + scrollable content
+- [x] Custom transparent floating navbar + FAB, aurora gradient backgrounds, Skia blur orbs
+- [x] Balance pills (owed / owe / settled), notifications modal, logout modal
+- [x] Auth screens (login/signup), protected routes, session restore on launch
+- [x] Group detail page, add-expense flow (all split types incl. percentage), add-group flow
+- [x] Global 401 → logout + redirect
+
+### Backend / Data
+- [x] Deployed to Vercel (`vercel.json`) against MongoDB Atlas; client wired to live API
+- [x] Auth, groups, expenses, users, settlements routes
+- [x] Percentage splits persisted end-to-end (`percentages` map, validated server-side)
+- [x] Equal-all splits snapshot participants at creation (no retroactive rewrites)
+- [x] Real settle-up: `Settlement` model + `/settlements` endpoints (no more one-person-expense trick)
+- [x] Input validation on expense create/update; finite-number guard on updates
+- [x] Auth rate limiting + generic login errors (no account enumeration)
+- [x] HTML-escaping of user input in emails
+- [x] Env-based seeder with `SEED_CONFIRM` guard + `.env.example`
 
 ---
 
-## 🔲 Pending
+## 🔲 Pending / Nice-to-have
 
-### Core Flows
-- [ ] **Group detail page** — expense list, member balance breakdown, "Add expense" entry point
-- [ ] **Add expense flow** — split types (equal, exact, percentage), payer selection, group picker
-- [ ] **Settle up flow** — select debt to settle, confirmation screen, mark as settled
-- [ ] **Add group flow** — group name, emoji picker, member invite
+### Correctness / Infra (deferred — see PRIORITIES.md, out of scope for now)
+- [ ] **Automated test suite** — `npm test` is currently a self-recursive placeholder
+- [ ] **Serverless-safe rate limiting** — current limiter is in-memory/per-process; move to a shared store (Redis or Mongo TTL) so it holds across Vercel instances
 
-### Auth
-- [ ] **Auth screens** — Login + Signup UI (email/password, form validation, error states)
-- [ ] **Client-side auth** — protected routes, session restore on app launch (already partially wired via `verifySession` in AppContext), logout clears token + redirects
-
-### Polish
-- [ ] **Tab bar icons** — proper Feather icons, active vs inactive color states
-- [ ] **Page transitions** — shared element card → detail, slide-up for add-expense / settle-up sheets
+### Features / Polish
+- [ ] **Real notifications** — currently client-derived from expenses/settlements, no persistence or real-time updates
+- [ ] **Profile editing** — make `currency` (hardcoded `₹ INR`) and dark-mode toggle user-configurable (both wired in AppContext, UI rows hidden)
+- [ ] **Backdrop blur on logout modal** — needs `@react-native-community/blur` + a native rebuild (`expo run:android`); currently a solid dark overlay
 - [ ] **Haptic feedback** — `expo-haptics` on FAB tap, settle confirm, destructive actions
-
-### Backend / Infrastructure
-- [ ] **Deploy backend to Vercel** — add `vercel.json`, move secrets to Vercel env vars, point `MONGO_URL` to MongoDB Atlas
-- [ ] **Wire client to live API** — update `constants/api.ts` `API_BASE` to deployed Vercel URL, remove local IP fallback
+- [ ] **Context-aware FAB** — add-expense when inside a group, add-group otherwise
 
 ---
 
 ## 📝 Notes
 
-- `@react-native-community/blur` is in `package.json` but requires a native rebuild (`expo run:android`) to work — currently unused. Logout modal backdrop uses solid `rgba(0,0,0,0.75)`.
-- Dark mode toggle exists in AppContext but the UI row is hidden on the Profile page for now.
-- `currency` is hardcoded to `₹ INR` in AppContext — make it a user setting when the profile edit flow is built.
+- `@react-native-community/blur` is in `package.json` but requires a native rebuild to work — currently unused. Logout modal backdrop uses solid `rgba(0,0,0,0.75)`.
+- Dark mode toggle exists in AppContext but the UI row is hidden on Profile for now.
+- `currency` is hardcoded to `₹ INR` in AppContext — make it a user setting when profile edit is built.

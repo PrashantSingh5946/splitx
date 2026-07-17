@@ -1,7 +1,7 @@
 # SplitX — Project Context
 
 Full context dump for resuming development with an AI assistant or new contributor.
-Last updated: May 2026.
+Last updated: July 2026.
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: May 2026.
 
 A React Native (Expo) bill-splitting app backed by a Node/Express + MongoDB API.
 Users create groups, add shared expenses, and track who owes whom.
-Inspired by Splitwise. Currently a working prototype with seed data.
+Inspired by Splitwise. Feature-complete: the backend is deployed to Vercel (`https://splitx-plum.vercel.app`, MongoDB Atlas) and the Expo client talks to it directly — no local setup required to run the app against production. Local docker setup below is for backend development only.
 
 ---
 
@@ -54,13 +54,13 @@ splitx/                          ← repo root
         │   └── AuroraBg.tsx
         ├── constants/
         │   ├── theme.ts         ← Colors, Tokens, getTokens(dark)
-        │   └── api.ts           ← API_BASE URL (LAN IP for physical device)
+        │   └── api.ts           ← API_BASE URL (points at deployed Vercel backend)
         ├── services/
         │   ├── api.ts           ← base request() + JWT token management
         │   ├── auth.ts          ← login, signup, checkEmail, fetchMe, logout
         │   ├── groups.ts        ← fetchGroups, fetchGroup, createGroup, searchUsers
-        │   ├── expenses.ts      ← fetchExpenses, createExpense, updateExpense, deleteExpense
-        │   └── mappers.ts       ← raw API → typed Group / Expense / Member
+        │   ├── expenses.ts      ← fetchExpenses, createExpense, updateExpense, deleteExpense, settleUp
+        │   └── mappers.ts       ← raw API → typed Group / Expense / Member / Settlement
         ├── store/
         │   └── AppContext.tsx   ← global state (auth, groups, theme, currency)
         ├── types/
@@ -73,30 +73,40 @@ splitx/                          ← repo root
 
 ## Running the Project
 
-### Backend
+### Production
+
+The backend is deployed on Vercel (`https://splitx-plum.vercel.app`, `vercel.json` at repo root) against MongoDB Atlas, and `constants/api.ts` already points at it:
+```ts
+// constants/api.ts
+export const API_BASE = 'https://splitx-plum.vercel.app';
+```
+So to run the client against production, no backend setup is needed — just start Expo (below).
+
+### Backend (local development only)
 
 ```bash
 cd splitx/                      # repo root
 docker compose up               # Express :3000 + MongoDB :27017
 ```
 
-Seed the DB (first time or after a wipe):
-```bash
-docker exec -it express-server node database/Seeder.js
-```
+Point the client at your local backend by temporarily editing `constants/api.ts`'s `API_BASE` (e.g. `http://<LAN-IP>:3000` for a physical device, `http://10.0.2.2:3000` for the Android emulator, `http://localhost:3000` for iOS sim).
 
-Seed creates:
-- **9 users** — Prashant (octanesingh@gmail.com), Aarav, Priya, Karan, Meera, Riya, Sameer, Ishaan, Tara
-- **Password for all:** `Splitx@123`
-- **3 groups:** Goa Trip 2025 (10 expenses), Apartment 4B (8 expenses), Weekend Crew (6 expenses)
-
-Backend `.env`:
+Backend `.env` (copy from `.env.example`):
 ```
 PORT=3000
-MONGO_URL=mongodb://mongo:27017/splitx
-TOKEN_KEY=splitx_jwt_secret_key_dev
-APP_URL=http://<your-LAN-IP>:8081
+MONGO_URL=<your MongoDB connection string>   # required — no default
+TOKEN_KEY=<jwt signing secret>
+APP_URL=<client origin for invite links>
 ```
+
+Seed the DB (destructive — guarded):
+```bash
+MONGO_URL=... SEED_CONFIRM=yes node database/Seeder.js
+```
+The seeder refuses to run without `MONGO_URL` set and `SEED_CONFIRM=yes` (a guard against accidentally wiping a real database). It creates:
+- **9 users** — Prashant (octanesingh@gmail.com), Aarav, Priya, Karan, Meera, Riya, Sameer, Ishaan, Tara
+- **Password for all:** `Splitx@123`
+- **3 groups:** Goa Trip 2025 (10 expenses), Apartment 4B (8 expenses), Weekend Crew (6 expenses), including percentage-split examples
 
 ### Client
 
@@ -105,16 +115,7 @@ cd splitx-client/splitx
 npx expo start
 ```
 
-**Critical:** update `constants/api.ts` with your machine's LAN IP before running on a physical device:
-```ts
-// constants/api.ts
-const LOCAL_HOST =
-  Platform.OS === 'android'
-    ? '192.168.29.4'   // ← change this to your machine's IP
-    : 'localhost';
-
-export const API_BASE = `http://${LOCAL_HOST}:3000`;
-```
+The client is its own git repo (remote: `github.com/PrashantSingh5946/splitx-client`), nested inside the backend repo but gitignored by it.
 
 ---
 
@@ -281,9 +282,14 @@ function shadeHex(hex: string, amount: number): string // amount 0–1 darkens
 - Make configurable when profile editing is built.
 
 ### Notifications
-- Built from seed data (derived from group expenses), not a real backend notifications system.
-- First 2 expenses per group are marked "unread", the rest "read".
+- Client-derived from group expenses/settlements, not a real backend notifications system.
+- First 2 items per group are marked "unread", the rest "read".
 - No real-time updates, no mark-as-read persistence.
+
+### Settle Up
+- A real backend feature (no longer a client-side "one-person expense" trick).
+- `POST /settlements/add` records a `Settlement` (payer, payee, amount) on the group; `GET /settlements/group/:group_id` lists them.
+- `computeGroupBalances` subtracts settlements from net balances, and the activity feed merges expenses + settlements.
 
 ---
 
@@ -302,9 +308,13 @@ function shadeHex(hex: string, amount: number): string // amount 0–1 darkens
 | DELETE | `/groups/delete/:id` | Delete group |
 | POST | `/groups/:id/members` | Add members to group |
 | GET | `/expenses/group/:groupId` | Get expenses for a group |
-| POST | `/expenses/add` | Create expense |
-| PUT | `/expenses/update/:id` | Update expense (name, amount, isSettled) |
+| POST | `/expenses/add` | Create expense (validates ownerId/splitType/share/percentages against group membership) |
+| PUT | `/expenses/update/:id` | Update expense (name, amount, isSettled; finite-number guarded) |
 | DELETE | `/expenses/delete/:id` | Delete expense |
+| POST | `/settlements/add` | Record a settlement (payer → payee, amount) in a group |
+| GET | `/settlements/group/:group_id` | Get all settlements for a group |
+
+All auth routes (`/login`, `/signup`, `/check-email`) are rate-limited, and login returns a generic 401 (no account enumeration).
 
 ---
 
